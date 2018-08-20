@@ -101,7 +101,7 @@
 
             const characteristics = new Map([
                 ["number", [1, 2, 3]],
-                ["shape", ["sqaure", "triangle", "circle"]],
+                ["shape", ["square", "triangle", "circle"]],
                 ["color", ["red", "blue", "green"]],
                 ["fill", ["none", "solid", "pattern"]]
             ]);
@@ -115,7 +115,7 @@
             /* Creates an identifier for a particular game (for repeatability). */
             function generateGameId() {
                 let gameId = "";
-                // Assumes settings and characteristices do not change, just capture cards
+                // Assumes settings and characteristics do not change, just capture cards
                 for (let r = 0; r < cards.length; r++) {
                     const row = cards[r];
                     for (let c = 0; c < row.length; c++) {
@@ -197,7 +197,7 @@
                     }
 
                     // Apply "Shape" and "Color"
-                    if (card.shape === "sqaure") {
+                    if (card.shape === "square") {
                         svg += '<svg class="' + shapeClass + '" viewBox="-5 -5 60 60">'
                         + '    <rect x="0" y="0" width="50" height="50" stroke="' + card.color + '" stroke-width="5" fill="' + fill + '"/>'
                         + '</svg>';
@@ -251,7 +251,7 @@
                 return (new Set(arr)).size === arr.length;
             }
 
-            /* Returns true if the slected cards form a set (all characteristics are the same or different). */
+            /* Returns true if the selected cards form a set (all characteristics are the same or different). */
             function isSet(selected) {
                 let match = true;
                 // Get a list of the available characteristics
@@ -259,7 +259,7 @@
                 characteristics.forEach(function(characteristic, index, array) {
                     setCharacteristics.set(index, []);
                 });
-                // Consolidate the chararacterisitcs of each card together
+                // Consolidate the characteristics of each card together
                 selected.forEach(function(card, index, array) {
                     characteristics.forEach(function(characteristic, index, array) {
                         const arr = setCharacteristics.get(index);
@@ -361,7 +361,7 @@
                 $("#message").empty();
 
                 if (gameId) {
-                    // Predetemined game
+                    // Predetermined game
                     generateCards(settings.rows, settings.cols, gameId);
                     findSets();
                     $("#gameId").html(gameId);
