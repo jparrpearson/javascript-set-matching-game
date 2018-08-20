@@ -363,6 +363,7 @@
                 if (gameId) {
                     // Predetemined game
                     generateCards(settings.rows, settings.cols, gameId);
+                    findSets();
                     $("#gameId").html(gameId);
                 } else {
                     // Random game
