@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>JavaScript Set Matching Game</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <style>
+            table {
+                table-layout: fixed;
+                border: 1px solid black;
+                border-collapse: separate;
+                border-spacing: 10px;
+                width: 100%;
+                min-height: 500px;
+            }
+
+            td {
+                border: 1px solid black;
+                padding: 15px;
+                cursor: pointer;
+            }
+
+            td.selected {
+                background-color: lightgrey;
+            }
+
+            div > p, span > p {
+                padding: 5px;
+            }
+
+            div.found > span {
+                padding-right: 5px;
+            }
+
+            svg.default {
+                width: 50px;
+                height: 50px;
+            }
+
+            svg.small {
+                width: 15px;
+                height: 15px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Define SVG patterns (must be duplicated otherwise the last color overrides, and does not work when adding the defs to the DOM with jQuery) -->
+        <svg width="0" height="0">
+            <defs>
+                <pattern id="hatch-blue" patternUnits="userSpaceOnUse" width="12" height="12">
+                    <line x1="0" y1="0" x2="0" y2="12" stroke="blue" stroke-width="5"/>
+                    <line x1="0" y1="0" x2="12" y2="0" stroke="blue" stroke-width="5"/>
+                </pattern>
+                <pattern id="hatch-green" patternUnits="userSpaceOnUse" width="12" height="12">
+                    <line x1="0" y1="0" x2="0" y2="12" stroke="green" stroke-width="5"/>
+                    <line x1="0" y1="0" x2="12" y2="0" stroke="green" stroke-width="5"/>
+                </pattern>
+                <pattern id="hatch-red" patternUnits="userSpaceOnUse" width="12" height="12">
+                    <line x1="0" y1="0" x2="0" y2="12" stroke="red" stroke-width="5"/>
+                    <line x1="0" y1="0" x2="12" y2="0" stroke="red" stroke-width="5"/>
+                </pattern>
+            </defs>
+        </svg>
+        <div class="container">
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    <h1 class="panel-title">JavaScript Set Matching Game</h1>
+                </div>
+                <div class="panel-body">
+                    <div id="game" class="panel-body col-md-10"></div>
+                    <div class="panel-body col-md-2">
+                        <div class="form-group">
+                            <button id="newGameBtn" type="button" class="btn btn-primary btn-block">New Game</button>
+                            <button id="enterGameIdBtn" type="button" class="btn btn-primary btn-block">Enter Game Id</button>
+                            <button id="copyGameIdBtn" type="button" class="btn btn-primary btn-block">Copy Game Id</button>
+                        </div>
+                        <div class="form-group">
+                            <div id="timer" class="mt-10"><p class="bg-info"></p></div>
+                            <div id="results" class="mt-10">
+                                <p class="bg-info"></p>
+                                <div class="text-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="message" class="panel-footer text-center"></div>
+                <div class="panel-footer">
+                    <p class="bg-info">Game Id: <span id="gameId"></span></p>
+                </div>
+            </div>
+        </div>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.10/lodash.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script>
+            const defaultSettings = {
+                rows: 3,
+                cols: 4,
+                minimumSets: 4
+            };
+
+            const characteristics = new Map([
+                ["number", [1, 2, 3]],
+                ["shape", ["sqaure", "triangle", "circle"]],
+                ["color", ["red", "blue", "green"]],
+                ["fill", ["none", "solid", "pattern"]]
+            ]);
+
+            let timerInterval = null;
+            let start = new Date();
+            let cards = [];
+            let foundSets = [];
+            let allSets = [];
+
+            /* Creates an identifier for a particular game (for repeatability). */
+            function generateGameId() {
+                let gameId = "";
+                // Assumes settings and characteristices do not change, just capture cards
+                for (let r = 0; r < cards.length; r++) {
+                    const row = cards[r];
+                    for (let c = 0; c < row.length; c++) {
+                        const card = cards[r][c];
+                        characteristics.forEach(function(characteristic, index, array) {
+                            gameId += characteristics.get(index).indexOf(card[index]);
+                        });
+                    }
+                }
+                return gameId;
+            }
+
+            /* Get a random characteristic from the characteristics map for the given index. */
+            function randomCharacteristic(index) {
+                const values = characteristics.get(index);
+                return values[Math.floor(Math.random() * Math.floor(values.length))];
+            }
+
+            /* Returns true if the given card is already present in the cards matrix. */
+            function isDuplicateCard(card) {
+                let existing = false;
+                out:
+                for (let r = 0; r < cards.length; r++) {
+                    const row = cards[r];
+                    for (let c = 0; c < row.length; c++) {
+                        const s = cards[r][c];
+                        if (_.isEqual(s, card)) {
+                            existing = true;
+                            break out;
+                        }
+                    }
+                }
+                return existing;
+            }
+
+            /* Populates the cards matrix with either a a combination of cards via the gameId or random, non-duplicated cards. */
+            function generateCards(rows, cols, gameId) {
+                cards = [];
+                foundSets = [];
+                allSets = [];
+                let gameIdIdx = 0;
+                for (let r = 0; r < rows; r++) {
+                    cards[r] = [];
+                    for (let c = 0; c < cols; c++) {
+                        const card = {};
+                        if (gameId) {
+                            // gameId is simply a string of numbers that reference the characteristics for each card
+                            characteristics.forEach(function(characteristic, index, array) {
+                                const value = gameId.charAt(gameIdIdx);
+                                card[index] = characteristic[value];
+                                gameIdIdx++;
+                            });
+                        } else {
+                            // If no game id was provided, generate random cards
+                            do {
+                                characteristics.forEach(function(characteristic, index, array) {
+                                    card[index] = randomCharacteristic(index);
+                                });
+                            } while(isDuplicateCard(card));
+                        }
+                        cards[r][c] = card;
+                    }
+                }
+            }
+
+            /* Creates the TD and child SVG element for the given card. */
+            function generateCardSvg(card, shapeClass) {
+                let svg = '';
+                // Apply "Number"
+                for (let i = 0; i < card.number; i++) {
+                    // Apply "Fill"
+                    let fill = "";
+                    if (card.fill === "pattern") {
+                        fill = "url(#hatch-" + card.color + ")";
+                    } else if (card.fill === "solid") {
+                        fill = card.color;
+                    } else if (card.fill === "none") {
+                        fill = "none";
+                    }
+
+                    // Apply "Shape" and "Color"
+                    if (card.shape === "sqaure") {
+                        svg += '<svg class="' + shapeClass + '" viewBox="-5 -5 60 60">'
+                        + '    <rect x="0" y="0" width="50" height="50" stroke="' + card.color + '" stroke-width="5" fill="' + fill + '"/>'
+                        + '</svg>';
+                    } else if (card.shape === "triangle") {
+                        svg += '<svg class="' + shapeClass + '" viewBox="-5 -5 60 60">'
+                        + '    <polygon points="0,50 25,0 50,50" stroke="' + card.color + '" stroke-width="5" fill="' + fill + '"/>'
+                        + '</svg>';
+                    } else if (card.shape === "circle") {
+                        svg += '<svg class="' + shapeClass + '" viewBox="-5 -5 60 60">'
+                        + '    <circle cx="25" cy="25" r="25" stroke="' + card.color + '" stroke-width="5" fill="' + fill + '"/>'
+                        + '</svg>';
+                    }
+                }
+                return svg;
+            }
+
+            /* Display the cards matrix in the DOM (#game) using SVG elements. */
+            function displayCards(gameSettings) {
+                const container = $("#game");
+                const table = $('<table/>').appendTo(container);
+                for (let r = 0; r < cards.length; r++) {
+                    const row = cards[r];
+                    const tr = $('<tr/>').appendTo(table);
+                    for (let c = 0; c < row.length; c++) {
+                        const card = cards[r][c];
+                        // Save the values in the DOM to determine which card was selected later
+                        let td = '<td class="card" align="center" data-row="' + r + '" data-col="' + c + '">';
+                        td += generateCardSvg(card, "default");
+                        td += '</td>';
+                        $(tr).append(td);
+                    }
+                }
+            }
+
+            /* Sort function for sets (array of arrays, with consistent attribute order). */
+            function setSort(a, b) {
+                // Attribute order must be the same when using JSON.stringify
+                return JSON.stringify(a) === JSON.stringify(b) ? 0 :
+                    (JSON.stringify(a) > JSON.stringify(b) ? 1 : -1);
+            }
+
+            /* Returns true if all elements in the array are the same. */
+            function areElementsSame(arr) {
+                return arr.every(function(item, index, array) {
+                    return item === array[0];
+                });
+            }
+
+            /* Returns true if all elements in the array are different (unique). */
+            function areElementsDifferent(arr) {
+                return (new Set(arr)).size === arr.length;
+            }
+
+            /* Returns true if the slected cards form a set (all characteristics are the same or different). */
+            function isSet(selected) {
+                let match = true;
+                // Get a list of the available characteristics
+                const setCharacteristics = new Map();
+                characteristics.forEach(function(characteristic, index, array) {
+                    setCharacteristics.set(index, []);
+                });
+                // Consolidate the chararacterisitcs of each card together
+                selected.forEach(function(card, index, array) {
+                    characteristics.forEach(function(characteristic, index, array) {
+                        const arr = setCharacteristics.get(index);
+                        arr.push(card[index])
+                        setCharacteristics.set(index, arr);
+                    });
+                });
+                // Decide if the characteristics are all the same or are all different
+                setCharacteristics.forEach(function(characteristic, index, array) {
+                    if (!areElementsSame(characteristic) && !areElementsDifferent(characteristic)) {
+                        match = false;
+                    }
+                });
+                return match;
+            }
+
+            /* Returns true if the set has already been found. */
+            function isDuplicateSet(selected) {
+                let existing = false;
+                foundSets.some(function(set, index, array) {
+                    // Cards must be sorted
+                    if (_.isEqual(set, selected)) {
+                        existing = true;
+                        return true;
+                    }
+                });
+                return existing;
+            }
+
+            /* Finds all possible combinations of 3 elements in the array. */
+            function unqiueCombinations(arr) {
+                const values = [];
+                arr.forEach(function(first, index, array) {
+                    arr.forEach(function(second, index, array) {
+                        arr.forEach(function(third, index, array) {
+                            if (first !== second && second !== third && third !== first) {
+                                // Keep values sorted to allow for duplicate removal
+                                values.push([first, second, third].sort());
+                            }
+                        });
+                    });
+                });
+                // Remove duplicates
+                return _.uniqWith(values, _.isEqual);
+            }
+
+            /* Finds all possible sets in the cards matrix.  Returns the number of possible sets. */
+            function findSets() {
+                allSets = [];
+                // Create a list of all possible card locations (matrix locations)
+                const cells = [];
+                for (let r = 0; r < cards.length; r++) {
+                    const row = cards[r];
+                    for (let c = 0; c < row.length; c++) {
+                        cells.push([r, c]);
+                    }
+                }
+                // Check each possible combination of cards to determine if it is a set
+                const combinations = unqiueCombinations(cells);
+                combinations.forEach(function(possibleSet, index, array) {
+                    let selected = [];
+                    possibleSet.forEach(function(location, index, array) {
+                        selected.push(cards[location[0]][location[1]]);
+                    });
+                    // Keep sorted to avoid finding duplicates
+                    selected = selected.sort(setSort);
+                    if (isSet(selected)) {
+                        allSets.push(selected);
+                    }
+                });
+                return allSets.length;
+            }
+
+            // Secret function for people who are bad at the game ;)
+            function showHint() {
+                if (foundSets.length < allSets.length) {
+                    console.log("HINT:");
+                    allSets.some(function(set, index, array) {
+                        if (!isDuplicateSet(set)) {
+                            set.forEach(function(card, index, array) {
+                                console.log(card);
+                                $("td.card").each(function() {
+                                    if (_.isEqual(card, cards[$(this).data("row")][$(this).data("col")])) {
+                                        $(this).fadeTo(1000, 0.25).fadeTo(1000, 1.0);
+                                    }
+                                });
+                            });
+                            return true;
+                        }
+                    });
+                }
+            }
+
+            /* Starts a new game by clearing previous values and generating new cards. */
+            function startGame(settings, gameId) {
+                $("#timer > p").html("-");
+                start = Date.now();
+                $("#game").empty();
+                $("#message").empty();
+
+                if (gameId) {
+                    // Predetemined game
+                    generateCards(settings.rows, settings.cols, gameId);
+                    $("#gameId").html(gameId);
+                } else {
+                    // Random game
+                    do {
+                        generateCards(settings.rows, settings.cols);
+                    } while(findSets() < settings.minimumSets);
+                    $("#gameId").html(generateGameId());
+                }
+                displayCards();
+
+                $("#results > p").html("Found " + foundSets.length + " of " + allSets.length + " sets");
+                $("#results > div").empty();
+                timerInterval = setInterval(function() {
+                    let elapsed = Date.now() - start;
+                    let m = Math.floor(elapsed / 60000);
+                    let s = ((elapsed % 60000) / 1000).toFixed(0);
+                    $("#timer > p").html(m + " minutes, " + s + " seconds");
+                }, 1000);
+            }
+
+            $(function() {
+                let settings = $.extend({}, defaultSettings, {});
+
+                document.onkeyup = function(e) {
+                    // CTRL + ALT + H
+                    if (e.ctrlKey && e.shiftKey && e.which == 72) {
+                        showHint();
+                    }
+                };
+
+                $("#newGameBtn").on("click", function() {
+                    startGame(settings);
+                });
+
+                $("#enterGameIdBtn").on("click", function() {
+                    var gameId = window.prompt("Enter game id");
+                    if (gameId === null) {
+                        return;
+                    }
+                    // Game id must be a number and must be the correct length
+                    if (!isNaN(gameId) && gameId.length === (settings.rows * settings.cols * characteristics.size)) {
+                        startGame(settings, gameId);
+                    } else {
+                        const message = "Invalid game id!";
+                        $("#message").empty().append('<p class="bg-danger">' + message + '</p>');
+                    }
+                });
+
+                $("#copyGameIdBtn").on("click", function() {
+                    window.getSelection().removeAllRanges();
+                    const range = document.createRange();
+                    range.selectNode($("#gameId").get(0));
+                    window.getSelection().addRange(range);
+                    document.execCommand("copy");
+                    window.getSelection().removeAllRanges();
+                });
+
+                $("#game").on("click", "td", function() {
+                    $(this).toggleClass("selected");
+                    if ($("td.selected").length === 3) {
+                        let selected = [];
+                        $("td.selected").each(function() {
+                            selected.push(cards[$(this).data("row")][$(this).data("col")]);
+                        });
+                        selected = selected.sort(setSort);
+
+                        // Show appropriate message for different outcomes
+                        if (isDuplicateSet(selected)) {
+                            const message = "You already found that set!";
+                            $("#message").empty().append('<p class="bg-danger">' + message + '</p>');
+                        } else if (isSet(selected)) {
+                            foundSets.push(selected);
+                            // Display found set
+                            $("#results > p").html("Found " + foundSets.length + " of " + allSets.length + " sets");
+                            let div = '<div class="found">';
+                            selected.forEach(function(card, index, array) {
+                                div += '<span>' + generateCardSvg(card, "small") + '</span>';
+                            });
+                            div += '</div>';
+                            $(div).appendTo($("#results > div"));
+                            if (foundSets.length === allSets.length) {
+                                const message = "You win!";
+                                $("#message").empty().append('<p class="bg-success">' + message + '</p>');
+                                clearInterval(timerInterval);
+                            } else {
+                                const message = "You found a set!";
+                                $("#message").empty().append('<p class="bg-success">' + message + '</p>');
+                            }
+                        } else {
+                            const message = "That is not a set!";
+                            $("#message").empty().append('<p class="bg-danger">' + message + '</p>');
+                        }
+                        $("td.selected").toggleClass("selected");
+                    }
+                });
+
+                startGame(settings);
+            });
+        </script>
+    </body>
+</html>
