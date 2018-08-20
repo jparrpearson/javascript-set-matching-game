@@ -356,9 +356,13 @@
             /* Starts a new game by clearing previous values and generating new cards. */
             function startGame(settings, gameId) {
                 $("#timer > p").html("-");
-                start = Date.now();
                 $("#game").empty();
                 $("#message").empty();
+
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+                start = Date.now();
 
                 if (gameId) {
                     // Predetermined game
