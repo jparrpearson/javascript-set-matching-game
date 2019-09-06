@@ -71,8 +71,8 @@
                     <div class="panel-body col-md-2">
                         <div class="form-group">
                             <button id="newGameBtn" type="button" class="btn btn-primary btn-block">New Game</button>
-                            <button id="enterGameIdBtn" type="button" class="btn btn-primary btn-block">Enter Game Id</button>
-                            <button id="copyGameIdBtn" type="button" class="btn btn-primary btn-block">Copy Game Id</button>
+                            <button id="enterGameIdBtn" type="button" class="btn btn-primary btn-block">Enter Game ID</button>
+                            <button id="copyGameIdBtn" type="button" class="btn btn-primary btn-block">Copy Game ID</button>
                         </div>
                         <div class="form-group">
                             <div id="timer" class="mt-10"><p class="bg-info"></p></div>
@@ -85,7 +85,7 @@
                 </div>
                 <div id="message" class="panel-footer text-center"></div>
                 <div class="panel-footer">
-                    <p class="bg-info">Game Id: <span id="gameId"></span></p>
+                    <p class="bg-info">Game ID: <span id="gameId"></span></p>
                 </div>
             </div>
         </div>
@@ -169,7 +169,7 @@
                                 gameIdIdx++;
                             });
                         } else {
-                            // If no game id was provided, generate random cards
+                            // If no game ID was provided, generate random cards
                             do {
                                 characteristics.forEach(function(characteristic, index, array) {
                                     card[index] = randomCharacteristic(index);
@@ -403,15 +403,15 @@
                 });
 
                 $("#enterGameIdBtn").on("click", function() {
-                    var gameId = window.prompt("Enter game id");
+                    var gameId = window.prompt("Enter game ID");
                     if (gameId === null) {
                         return;
                     }
-                    // Game id must be a number and must be the correct length
+                    // Game ID must be a number and must be the correct length
                     if (!isNaN(gameId) && gameId.length === (settings.rows * settings.cols * characteristics.size)) {
                         startGame(settings, gameId);
                     } else {
-                        const message = "Invalid game id!";
+                        const message = "Invalid game ID!";
                         $("#message").empty().append('<p class="bg-danger">' + message + '</p>');
                     }
                 });
